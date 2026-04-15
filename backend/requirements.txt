@@ -1,0 +1,16 @@
+fastapi
+uvicorn[standard]
+websockets
+requests
+beautifulsoup4
+httpx
+sentence-transformers
+faiss-cpu
+torch
+sqlalchemy
+aiosqlite
+pydantic
+python-multipart
+greenlet
+groq
+python-dotenv
