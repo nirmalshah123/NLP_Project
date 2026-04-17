@@ -6,7 +6,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
   });
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-  return res.json();
+  if (res.status === 204) return undefined as T;
+  const text = await res.text();
+  if (!text) return undefined as T;
+  return JSON.parse(text) as T;
 }
 
 export interface Scenario {

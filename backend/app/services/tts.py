@@ -45,8 +45,22 @@ async def synthesize(text: str) -> bytes:
                 headers=headers,
                 params={"output_format": TTS_OUTPUT_FORMAT},
             )
+            if resp.status_code == 402:
+                logger.error(
+                    "ElevenLabs TTS: HTTP 402 Payment Required — no usable credits or billing inactive. "
+                    "Check https://elevenlabs.io/app/subscription and backend/.env ELEVENLABS_API_KEY. Body: %s",
+                    (resp.text or "")[:400],
+                )
+                return b""
             resp.raise_for_status()
             return resp.content
+    except httpx.HTTPStatusError as e:
+        logger.error(
+            "ElevenLabs TTS failed: %s — %s",
+            e,
+            (e.response.text[:400] if e.response is not None else ""),
+        )
+        return b""
     except Exception as e:
         logger.error("ElevenLabs TTS failed: %s", e)
         return b""

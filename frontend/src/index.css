@@ -1,3 +1,256 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Full-viewport brand atmosphere (Layout shell) */
+.app-shell-bg {
+  min-height: 100vh;
+  background-color: #000000;
+  background-image:
+    radial-gradient(ellipse 140% 100% at 50% -35%, rgba(238, 42, 123, 0.3), transparent 58%),
+    radial-gradient(ellipse 110% 85% at 105% 35%, rgba(124, 58, 237, 0.24), transparent 52%),
+    radial-gradient(ellipse 100% 75% at -15% 55%, rgba(185, 28, 140, 0.2), transparent 48%),
+    linear-gradient(165deg, #0a0610 0%, #000000 32%, #030208 58%, #06040f 100%);
+  background-size: cover;
+  background-attachment: fixed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-shell-bg {
+    background-attachment: scroll;
+  }
+}
+
+@layer base {
+  :root {
+    --color-canvas: #000000;
+    --color-surface: rgba(255, 255, 255, 0.06);
+    --color-border: rgba(255, 255, 255, 0.1);
+    --gradient-brand: linear-gradient(135deg, #ee2a7b 0%, #b91c8c 35%, #8e2de2 100%);
+    /* Matches tailwind theme.extend.boxShadow.glow-sm — not usable inside @apply */
+    --shadow-glow-sm: 0 0 24px -4px rgba(238, 42, 123, 0.35), 0 0 40px -8px rgba(142, 45, 226, 0.3);
+    --ring-focus: rgba(232, 121, 249, 0.85);
+  }
+
+  html {
+    @apply antialiased;
+  }
+
+  /* Focus visible for keyboard users — links & buttons; form fields use component classes */
+  a:focus-visible,
+  button:focus-visible {
+    @apply outline-none ring-2 ring-offset-2 ring-offset-black;
+    --tw-ring-color: var(--ring-focus);
+  }
+}
+
+@layer components {
+  .glass-panel {
+    @apply rounded-3xl border border-white/10 bg-white/[0.06] backdrop-blur-md;
+  }
+
+  .input-dark {
+    @apply w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-zinc-100 placeholder:text-zinc-500 transition;
+  }
+
+  .input-dark:focus,
+  .input-dark:focus-visible {
+    @apply border-fuchsia-500/50 ring-2 ring-fuchsia-400/50 ring-offset-2 ring-offset-black outline-none;
+  }
+
+  /* Native selects: custom chevron, no OS chrome; color-scheme for dark dropdown */
+  .select-dark {
+    @apply w-full rounded-2xl py-3 pl-4 text-zinc-100 transition;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    min-height: 44px;
+    padding-right: 2.75rem;
+    cursor: pointer;
+    color-scheme: dark;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background-color: rgba(0, 0, 0, 0.4);
+    background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23d4d4d8%22%20stroke-width%3D%222%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20d%3D%22M6%209l6%206%206-6%22%2F%3E%3C%2Fsvg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.875rem center;
+    background-size: 1.125rem 1.125rem;
+  }
+
+  .select-dark:hover {
+    border-color: rgba(255, 255, 255, 0.18);
+  }
+
+  .select-dark:focus,
+  .select-dark:focus-visible {
+    @apply ring-2 ring-offset-2 outline-none;
+    border-color: rgba(217, 70, 239, 0.55);
+    --tw-ring-color: rgba(232, 121, 249, 0.45);
+    --tw-ring-offset-color: #000000;
+  }
+
+  .select-dark option {
+    background-color: #18181b;
+    color: #f4f4f5;
+  }
+
+  .btn-brand {
+    @apply inline-flex min-h-[44px] items-center justify-center rounded-2xl px-6 py-2.5 font-medium text-white transition hover:brightness-110 active:brightness-95;
+    background-image: var(--gradient-brand);
+    box-shadow: var(--shadow-glow-sm);
+  }
+
+  .btn-brand:focus-visible {
+    @apply ring-2 ring-fuchsia-400/90 ring-offset-2 ring-offset-black;
+  }
+
+  .btn-brand:disabled {
+    @apply cursor-not-allowed opacity-50 brightness-100;
+    box-shadow: none;
+  }
+
+  .link-muted {
+    @apply text-zinc-400 transition hover:text-zinc-200;
+  }
+
+  /* Glassmorphism (dashboard-style) — used on scenario home */
+  .glass-strong {
+    @apply rounded-[1.75rem] border bg-white/[0.08] shadow-lg backdrop-blur-xl;
+    border-color: rgba(255, 255, 255, 0.15);
+    box-shadow:
+      0 10px 15px -3px rgba(0, 0, 0, 0.2),
+      0 4px 6px -4px rgba(0, 0, 0, 0.15);
+  }
+
+  .input-glass {
+    @apply w-full rounded-2xl border bg-black/25 px-4 py-3 text-zinc-50 placeholder:text-zinc-500 transition;
+    border-color: rgba(255, 255, 255, 0.12);
+  }
+
+  .input-glass:focus,
+  .input-glass:focus-visible {
+    @apply ring-2 ring-offset-2 outline-none;
+    border-color: rgba(217, 70, 239, 0.55);
+    --tw-ring-color: rgba(232, 121, 249, 0.45);
+    --tw-ring-offset-color: #0a0a0a;
+  }
+
+  .select-glass {
+    @apply w-full rounded-2xl py-3 pl-4 text-zinc-50 transition;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    min-height: 44px;
+    padding-right: 2.75rem;
+    cursor: pointer;
+    color-scheme: dark;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background-color: rgba(0, 0, 0, 0.25);
+    background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23d4d4d8%22%20stroke-width%3D%222%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20d%3D%22M6%209l6%206%206-6%22%2F%3E%3C%2Fsvg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.875rem center;
+    background-size: 1.125rem 1.125rem;
+  }
+
+  .select-glass:hover {
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+
+  .select-glass:focus,
+  .select-glass:focus-visible {
+    @apply ring-2 ring-offset-2 outline-none;
+    border-color: rgba(217, 70, 239, 0.55);
+    --tw-ring-color: rgba(232, 121, 249, 0.45);
+    --tw-ring-offset-color: #0a0a0a;
+  }
+
+  .select-glass option {
+    background-color: #18181b;
+    color: #fafafa;
+  }
+
+  .btn-accent-orange {
+    @apply inline-flex min-h-[44px] w-full items-center justify-center rounded-2xl px-6 py-3 text-sm font-semibold text-white transition active:brightness-95;
+    background-color: #ff6b35;
+    box-shadow: 0 10px 25px -5px rgba(124, 28, 6, 0.35);
+  }
+
+  .btn-accent-orange:hover:not(:disabled) {
+    background-color: #ff8555;
+  }
+
+  .btn-accent-orange:focus-visible {
+    @apply ring-2 ring-offset-2 outline-none;
+    --tw-ring-color: rgba(253, 186, 116, 0.9);
+    --tw-ring-offset-color: #0a0a0a;
+  }
+
+  .btn-accent-orange:disabled {
+    @apply cursor-not-allowed opacity-50 shadow-none;
+  }
+
+  /* Range slider — brand gradient thumb, clear track (ScenarioConfig) */
+  .slider-brand {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 1.75rem;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .slider-brand:focus {
+    outline: none;
+  }
+
+  .slider-brand:focus-visible {
+    outline: 2px solid rgba(232, 121, 249, 0.85);
+    outline-offset: 4px;
+    border-radius: 0.5rem;
+  }
+
+  .slider-brand::-webkit-slider-runnable-track {
+    height: 0.5rem;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .slider-brand::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 1.25rem;
+    height: 1.25rem;
+    margin-top: -0.375rem;
+    border-radius: 9999px;
+    background: var(--gradient-brand);
+    box-shadow:
+      0 0 0 2px rgba(0, 0, 0, 0.35),
+      0 2px 10px rgba(238, 42, 123, 0.45);
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    cursor: grab;
+  }
+
+  .slider-brand::-webkit-slider-thumb:active {
+    cursor: grabbing;
+    transform: scale(1.05);
+  }
+
+  .slider-brand::-moz-range-track {
+    height: 0.5rem;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .slider-brand::-moz-range-thumb {
+    width: 1.25rem;
+    height: 1.25rem;
+    border-radius: 9999px;
+    background: var(--gradient-brand);
+    box-shadow:
+      0 0 0 2px rgba(0, 0, 0, 0.35),
+      0 2px 10px rgba(238, 42, 123, 0.45);
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    cursor: grab;
+  }
+}

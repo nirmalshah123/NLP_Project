@@ -160,6 +160,7 @@ class CallSession:
             if first_token_time is None:
                 first_token_time = time.perf_counter()
             full_response.append(token)
+            await ws.send_text(json.dumps({"type": "assistant_delta", "delta": token}))
             sentence_buffer.append(token)
 
             current_sentence = "".join(sentence_buffer)

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { api } from "../lib/api";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { api, Scenario } from "../lib/api";
 import { createCallSocket } from "../lib/websocket";
 
 interface TranscriptEntry {
@@ -10,10 +10,141 @@ interface TranscriptEntry {
 
 type CallState = "idle" | "ready" | "recording" | "processing" | "speaking";
 
+function SparkleIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M12 2l1.2 4.9L18 8l-5 1.1L12 14l-1-5.9L6 8l4.8-1.1L12 2zm0 10l.9 3.8L16 17l-4 1-1 4-1-4-4-1 3.1-1.2L12 12z" />
+    </svg>
+  );
+}
+
+function IconCopy({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+    </svg>
+  );
+}
+
+function IconThumbUp({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3zM7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3" />
+    </svg>
+  );
+}
+
+function IconVolume({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+    </svg>
+  );
+}
+
+function IconRefresh({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+    </svg>
+  );
+}
+
+function IconPlus({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+    </svg>
+  );
+}
+
+function IconDotsVertical({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path d="M12 8a1.5 1.5 0 110-3 1.5 1.5 0 010 3zm0 2.5a1.5 1.5 0 100 3 1.5 1.5 0 000-3zm0 8a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" />
+    </svg>
+  );
+}
+
+function CustomerTypingRow({ timerLabel }: { timerLabel?: string }) {
+  return (
+    <div className="flex items-center gap-2 px-2 text-zinc-400 lg:px-3">
+      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-gradient p-px">
+        <div className="flex h-full w-full items-center justify-center rounded-full bg-zinc-950">
+          <SparkleIcon className="h-4 w-4 animate-pulse text-fuchsia-300" />
+        </div>
+      </div>
+      <div className="flex items-center gap-1 rounded-2xl border border-white/10 bg-[rgba(30,30,30,0.88)] px-4 py-2.5">
+        <span className="sr-only">Customer is typing</span>
+        <span className="flex gap-1" aria-hidden>
+          <span className="h-2 w-2 animate-bounce rounded-full bg-zinc-500 [animation-delay:-0.3s]" />
+          <span className="h-2 w-2 animate-bounce rounded-full bg-zinc-500 [animation-delay:-0.15s]" />
+          <span className="h-2 w-2 animate-bounce rounded-full bg-zinc-500" />
+        </span>
+        {timerLabel !== undefined ? (
+          <span className="ml-2 font-mono text-xs text-zinc-500">{timerLabel}</span>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function AiBubbleFooter({ text, onCopied }: { text: string; onCopied: () => void }) {
+  return (
+    <div className="mt-3 flex items-center justify-between border-t border-white/10 pt-2.5">
+      <div className="flex items-center gap-1">
+        <button
+          type="button"
+          onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(text);
+              onCopied();
+            } catch {
+              /* ignore */
+            }
+          }}
+          className="rounded-lg p-2 text-zinc-500 transition hover:bg-white/10 hover:text-zinc-300"
+          aria-label="Copy message"
+        >
+          <IconCopy className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          className="rounded-lg p-2 text-zinc-500 transition hover:bg-white/10 hover:text-zinc-300"
+          aria-label="Mark helpful"
+        >
+          <IconThumbUp className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          className="rounded-lg p-2 text-zinc-500 transition hover:bg-white/10 hover:text-zinc-300"
+          aria-label="Speak (not available)"
+          disabled
+          title="Playback is automatic during the call"
+        >
+          <IconVolume className="h-4 w-4" />
+        </button>
+      </div>
+      <button
+        type="button"
+        className="rounded-lg p-2 text-zinc-500 transition hover:bg-white/10 hover:text-zinc-300"
+        aria-label="Regenerate (not available)"
+        disabled
+        title="Regenerate is not available in training mode"
+      >
+        <IconRefresh className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
+
 export default function LiveCall() {
   const { callId: callIdStr } = useParams();
   const callId = Number(callIdStr);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const scenarioIdParam = searchParams.get("scenarioId");
+  const scenarioId = scenarioIdParam ? Number(scenarioIdParam) : NaN;
 
   const [state, setState] = useState<CallState>("idle");
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
@@ -22,6 +153,11 @@ export default function LiveCall() {
   const [lastLatency, setLastLatency] = useState<number | null>(null);
   const [throttleMsg, setThrottleMsg] = useState<string | null>(null);
   const [recordingMs, setRecordingMs] = useState(0);
+  const [scenario, setScenario] = useState<Scenario | null>(null);
+  const [copyToast, setCopyToast] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [streamingCustomerText, setStreamingCustomerText] = useState("");
+  const menuRef = useRef<HTMLDivElement>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -40,8 +176,27 @@ export default function LiveCall() {
   const nativeSRRef = useRef(48000);
 
   useEffect(() => {
+    if (!Number.isFinite(scenarioId)) {
+      setScenario(null);
+      return;
+    }
+    api
+      .getScenario(scenarioId)
+      .then(setScenario)
+      .catch(() => setScenario(null));
+  }, [scenarioId]);
+
+  useEffect(() => {
     transcriptEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [transcript]);
+  }, [transcript, state, streamingCustomerText]);
+
+  useEffect(() => {
+    function onDocClick(e: MouseEvent) {
+      if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false);
+    }
+    if (menuOpen) document.addEventListener("click", onDocClick);
+    return () => document.removeEventListener("click", onDocClick);
+  }, [menuOpen]);
 
   useEffect(() => {
     if (state === "processing") {
@@ -167,11 +322,17 @@ export default function LiveCall() {
             if (s === "listening") {
               setState("ready");
             } else if (s === "processing") {
+              setStreamingCustomerText("");
               setState("processing");
             } else if (s === "speaking") {
               setState("speaking");
             }
+          } else if (msg.type === "assistant_delta" && typeof msg.delta === "string") {
+            setStreamingCustomerText((prev) => prev + msg.delta);
           } else if (msg.type === "transcript") {
+            if (msg.role === "customer") {
+              setStreamingCustomerText("");
+            }
             setTranscript((prev) => [...prev, { role: msg.role, text: msg.text }]);
           } else if (msg.type === "throttle") {
             setThrottleMsg(`Rate limit: waiting ${msg.delay_s}s before ${msg.provider} call`);
@@ -226,6 +387,7 @@ export default function LiveCall() {
   }
 
   async function handleEndCall() {
+    setMenuOpen(false);
     recordingRef.current = false;
     processorRef.current?.disconnect();
     sourceNodeRef.current?.disconnect();
@@ -235,9 +397,14 @@ export default function LiveCall() {
       wsRef.current.send(JSON.stringify({ type: "end_call" }));
       await new Promise<void>((resolve) => {
         const ws = wsRef.current!;
-        const onClose = () => { ws.removeEventListener("close", onClose); resolve(); };
+        const onClose = () => {
+          ws.removeEventListener("close", onClose);
+          resolve();
+        };
         ws.addEventListener("close", onClose);
-        setTimeout(() => { resolve(); }, 2000);
+        setTimeout(() => {
+          resolve();
+        }, 2000);
       });
     }
 
@@ -255,152 +422,261 @@ export default function LiveCall() {
   }
 
   const stateLabel: Record<CallState, string> = {
-    idle: "CONNECTING...",
-    ready: "YOUR TURN - HOLD MIC TO SPEAK",
-    recording: "RECORDING - RELEASE TO SEND",
-    processing: "PROCESSING...",
-    speaking: "AI SPEAKING - WAIT",
+    idle: "Connecting...",
+    ready: "Your turn - hold mic to speak",
+    recording: "Recording - release to send",
+    processing: "Customer is thinking...",
+    speaking: "Customer is speaking - wait",
   };
 
-  const stateColors: Record<CallState, string> = {
-    idle: "bg-gray-700",
-    ready: "bg-green-600",
-    recording: "bg-red-600",
-    processing: "bg-yellow-600",
-    speaking: "bg-indigo-600",
-  };
+  const liveStatusText = `${connected ? "Connected" : "Disconnected"}. ${stateLabel[state]}.`;
 
   const canRecord = state === "ready";
   const isRecording = state === "recording";
   const isBusy = state === "processing" || state === "speaking";
 
-  return (
-    <div className="flex flex-col h-[calc(100vh-5rem)]">
-      {/* Status bar */}
-      <div className="flex items-center justify-between bg-gray-900 border border-gray-800 rounded-xl p-4 mb-3">
-        <div className="flex items-center gap-3">
-          <span className={`w-3 h-3 rounded-full ${connected ? "bg-green-500" : "bg-red-500"}`} />
-          <span className="text-sm text-gray-400">
-            {connected ? "Connected" : "Disconnected"}
-          </span>
-          <span className={`ml-3 px-3 py-1 rounded-full text-xs font-semibold text-white ${stateColors[state]}`}>
-            {stateLabel[state]}
-          </span>
-        </div>
+  const subtitle =
+    scenario?.objective ??
+    (Number.isFinite(scenarioId) ? "Loading scenario..." : "Voice training session");
 
-        <div className="flex items-center gap-4">
-          {state === "processing" && (
-            <div className="flex items-center gap-2">
-              <span className="relative flex h-2.5 w-2.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-yellow-500" />
+  const headerTitle = scenario?.persona_type ? `Training · ${scenario.persona_type}` : "Live training";
+
+  function showCopyToast() {
+    setCopyToast(true);
+    setTimeout(() => setCopyToast(false), 2000);
+  }
+
+  return (
+    <div className="mx-auto flex w-full min-h-[calc(100vh-5rem)] max-w-lg flex-col bg-transparent md:max-w-2xl lg:max-w-4xl xl:max-w-5xl">
+      <span className="sr-only" aria-live="polite" aria-atomic="true">
+        {liveStatusText}
+        {state === "processing" ? ` Elapsed ${formatMs(timerMs)}.` : ""}
+        {lastLatency !== null && state !== "processing" ? ` Last response ${formatMs(lastLatency)}.` : ""}
+      </span>
+
+      {/* Chat header */}
+      <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-white/10 bg-black/90 py-3 backdrop-blur-md lg:gap-4 lg:py-4">
+        <Link
+          to="/"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/10 bg-zinc-900/80 text-zinc-200 transition hover:bg-zinc-800 hover:text-white"
+          aria-label="Back to scenarios"
+        >
+          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+        </Link>
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-gradient p-0.5 shadow-glow-sm ring-1 ring-white/20">
+            <div className="flex h-full w-full items-center justify-center rounded-full bg-black/20">
+              <SparkleIcon className="h-5 w-5 text-white" />
+            </div>
+          </div>
+          <div className="min-w-0 flex-1">
+            <h1 className="truncate text-base font-bold text-white lg:text-lg">{headerTitle}</h1>
+            <p className="line-clamp-2 text-sm text-zinc-400 lg:text-base">{subtitle}</p>
+            <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-zinc-500">
+              <span
+                className={`inline-flex items-center gap-1.5 ${connected ? "text-emerald-400/90" : "text-red-400/90"}`}
+              >
+                <span className={`h-1.5 w-1.5 rounded-full ${connected ? "bg-emerald-400" : "bg-red-400"}`} aria-hidden />
+                {connected ? "Connected" : "Disconnected"}
               </span>
-              <span className="text-sm font-mono text-yellow-400">{formatMs(timerMs)}</span>
+              {scenario && (
+                <>
+                  <span aria-hidden>·</span>
+                  <span>Difficulty {scenario.difficulty}/10</span>
+                </>
+              )}
+            </p>
+          </div>
+        </div>
+        <div className="relative shrink-0" ref={menuRef}>
+          <button
+            type="button"
+            onClick={() => setMenuOpen((o) => !o)}
+            className="flex h-11 w-11 items-center justify-center rounded-full text-zinc-400 transition hover:bg-white/10 hover:text-white"
+            aria-expanded={menuOpen}
+            aria-haspopup="true"
+            aria-label="Call menu"
+          >
+            <IconDotsVertical className="h-5 w-5" />
+          </button>
+          {menuOpen && (
+            <div
+              className="absolute right-0 top-full z-30 mt-1 min-w-[10rem] rounded-2xl border border-white/10 bg-zinc-900 py-1 shadow-xl ring-1 ring-black/50"
+              role="menu"
+            >
+              <button
+                type="button"
+                role="menuitem"
+                onClick={handleEndCall}
+                className="w-full px-4 py-3 text-left text-sm font-medium text-red-300 transition hover:bg-red-950/50"
+              >
+                End call
+              </button>
             </div>
           )}
-          {state !== "processing" && lastLatency !== null && (
-            <span className="text-xs text-gray-500 font-mono">Last: {formatMs(lastLatency)}</span>
-          )}
-          <button
-            onClick={handleEndCall}
-            className="bg-red-700 hover:bg-red-600 text-white rounded-lg px-5 py-2 text-sm font-medium transition"
-          >
-            End Call
-          </button>
         </div>
-      </div>
+      </header>
 
-      {/* Throttle banner */}
       {throttleMsg && (
-        <div className="flex items-center gap-2 bg-amber-900/60 border border-amber-700 rounded-lg px-4 py-2 mb-3 text-amber-200 text-sm animate-pulse">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
+        <div className="mt-2 rounded-2xl border border-amber-500/40 bg-amber-950/50 px-3 py-2 text-xs text-amber-100" role="status">
           {throttleMsg}
         </div>
       )}
 
-      {/* Transcript */}
-      <div className="flex-1 overflow-y-auto bg-gray-900 border border-gray-800 rounded-xl p-4 space-y-3 mb-3">
-        {transcript.length === 0 && (
-          <p className="text-gray-500 text-center mt-12">
-            Hold the microphone button below and speak, then release to send.
+      {copyToast && (
+        <div className="mt-2 text-center text-xs font-medium text-emerald-400/90" role="status">
+          Copied to clipboard
+        </div>
+      )}
+
+      {/* Messages */}
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto py-4 lg:space-y-5 lg:py-6">
+        {transcript.length === 0 && state !== "processing" && state !== "speaking" && (
+          <p className="mx-auto max-w-2xl px-2 pt-8 text-center text-sm leading-relaxed text-zinc-400 lg:text-base">
+            Messages appear here as you and the customer speak. Use the microphone below - hold to talk, release to
+            send.
           </p>
         )}
-        {transcript.map((entry, i) => (
-          <div key={i} className={`flex ${entry.role === "representative" ? "justify-end" : "justify-start"}`}>
+
+        {transcript.map((entry, i) =>
+          entry.role === "representative" ? (
+            <div key={i} className="flex flex-row items-end justify-end gap-2 px-1 lg:px-2">
+              <div className="max-w-[min(85%,20rem)] rounded-full bg-brand-gradient px-4 py-3 text-sm font-medium leading-snug text-white shadow-glow-sm ring-1 ring-white/15 md:max-w-[min(80%,28rem)] md:px-5 md:py-3.5 md:text-base lg:max-w-[min(75%,36rem)]">
+                {entry.text}
+              </div>
+              <div
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/15 bg-zinc-800 text-xs font-bold text-zinc-200"
+                aria-hidden
+              >
+                You
+              </div>
+            </div>
+          ) : (
+            <div key={i} className="flex flex-row items-end gap-2 px-1 lg:px-2">
+              <div
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-gradient p-px shadow-sm ring-1 ring-white/15 lg:h-10 lg:w-10"
+                aria-hidden
+              >
+                <div className="flex h-full w-full items-center justify-center rounded-full bg-zinc-950">
+                  <SparkleIcon className="h-4 w-4 text-fuchsia-300" />
+                </div>
+              </div>
+              <div className="max-w-[min(92%,22rem)] rounded-[1.25rem] border border-white/10 bg-[rgba(30,30,30,0.88)] px-4 py-3 text-sm leading-relaxed text-zinc-100 backdrop-blur-sm md:max-w-[min(88%,32rem)] md:px-5 md:py-3.5 md:text-base lg:max-w-[min(82%,42rem)]">
+                <p className="whitespace-pre-wrap">{entry.text}</p>
+                <AiBubbleFooter text={entry.text} onCopied={showCopyToast} />
+              </div>
+            </div>
+          ),
+        )}
+
+        {state === "processing" && <CustomerTypingRow timerLabel={formatMs(timerMs)} />}
+
+        {state === "speaking" && streamingCustomerText === "" && <CustomerTypingRow />}
+
+        {state === "speaking" && streamingCustomerText !== "" && (
+          <div className="flex flex-row items-end gap-2 px-1 lg:px-2">
             <div
-              className={`max-w-[75%] rounded-xl px-4 py-2.5 text-sm ${
-                entry.role === "representative"
-                  ? "bg-indigo-900/50 text-indigo-100"
-                  : "bg-gray-800 text-gray-200"
-              }`}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-gradient p-px shadow-sm ring-1 ring-white/15 lg:h-10 lg:w-10"
+              aria-hidden
             >
-              <span className="block text-[10px] font-semibold uppercase tracking-wider mb-1 opacity-60">
-                {entry.role === "representative" ? "You (CSR)" : "Customer (AI)"}
-              </span>
-              {entry.text}
+              <div className="flex h-full w-full items-center justify-center rounded-full bg-zinc-950">
+                <SparkleIcon className="h-4 w-4 text-fuchsia-300" />
+              </div>
+            </div>
+            <div className="max-w-[min(92%,22rem)] rounded-[1.25rem] border border-fuchsia-500/25 bg-[rgba(30,30,30,0.88)] px-4 py-3 text-sm leading-relaxed text-zinc-100 backdrop-blur-sm md:max-w-[min(88%,32rem)] md:px-5 md:py-3.5 md:text-base lg:max-w-[min(82%,42rem)]">
+              <p className="whitespace-pre-wrap">
+                {streamingCustomerText}
+                <span
+                  className="ml-0.5 inline-block h-4 w-0.5 translate-y-0.5 animate-pulse bg-fuchsia-400/90 align-middle"
+                  aria-hidden
+                />
+              </p>
             </div>
           </div>
-        ))}
+        )}
+
         <div ref={transcriptEndRef} />
       </div>
 
-      {/* Push-to-talk controls */}
-      <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 flex flex-col items-center gap-3">
-        {isRecording && (
-          <div className="flex items-center gap-2 text-red-400 text-sm font-mono">
-            <span className="relative flex h-3 w-3">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500" />
-            </span>
-            Recording: {formatMs(recordingMs)}
+      {/* Quick suggestion + composer */}
+      <div className="sticky bottom-0 z-20 border-t border-white/10 bg-gradient-to-t from-black via-black to-transparent pb-2 pt-3 lg:pb-4 lg:pt-4">
+        {canRecord && (
+          <div
+            className="mb-3 rounded-full bg-brand-gradient px-4 py-3 text-left text-sm font-medium text-white shadow-glow-sm ring-1 ring-white/15 lg:px-5 lg:py-3.5 lg:text-base"
+            role="note"
+          >
+            Tip: hold the mic, speak clearly, then release to send your reply.
           </div>
         )}
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 rounded-full border border-white/15 bg-zinc-900/90 py-2 pl-4 pr-2 shadow-inner backdrop-blur-md lg:gap-3 lg:py-2.5 lg:pl-5 lg:pr-3">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm text-zinc-500 lg:text-base">
+              {isRecording
+                ? `Recording... ${formatMs(recordingMs)}`
+                : isBusy
+                  ? state === "processing"
+                    ? "Customer is thinking..."
+                    : streamingCustomerText
+                      ? "Customer reply streaming…"
+                      : "Customer is typing…"
+                  : canRecord
+                    ? "Hold mic to speak..."
+                    : "Wait for your turn..."}
+            </p>
+            {lastLatency !== null && !isBusy && state === "ready" && (
+              <p className="truncate text-xs text-zinc-600">Last reply: {formatMs(lastLatency)}</p>
+            )}
+          </div>
           <button
+            type="button"
             onMouseDown={startRecording}
             onMouseUp={stopRecording}
-            onMouseLeave={() => { if (isRecording) stopRecording(); }}
-            onTouchStart={(e) => { e.preventDefault(); startRecording(); }}
-            onTouchEnd={(e) => { e.preventDefault(); stopRecording(); }}
+            onMouseLeave={() => {
+              if (isRecording) stopRecording();
+            }}
+            onTouchStart={(e) => {
+              e.preventDefault();
+              startRecording();
+            }}
+            onTouchEnd={(e) => {
+              e.preventDefault();
+              stopRecording();
+            }}
             disabled={!canRecord && !isRecording}
+            aria-label={
+              isRecording ? "Release to send" : canRecord ? "Hold to speak" : "Wait until the customer finishes"
+            }
             className={`
-              relative w-20 h-20 rounded-full flex items-center justify-center transition-all duration-150 select-none
+              flex h-12 w-12 shrink-0 items-center justify-center rounded-full transition-all lg:h-14 lg:w-14
               ${isRecording
-                ? "bg-red-600 scale-110 shadow-lg shadow-red-600/40 ring-4 ring-red-400/50"
+                ? "scale-105 bg-red-600 text-white shadow-lg shadow-red-600/30 ring-2 ring-red-400/50"
                 : canRecord
-                  ? "bg-green-600 hover:bg-green-500 hover:scale-105 shadow-lg shadow-green-600/30 cursor-pointer"
-                  : "bg-gray-700 opacity-50 cursor-not-allowed"
+                  ? "bg-brand-gradient text-white shadow-glow-sm ring-1 ring-white/20 hover:scale-105 hover:brightness-110 active:brightness-95"
+                  : "cursor-not-allowed bg-zinc-800 text-zinc-600"
               }
             `}
           >
             {isRecording ? (
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+              <svg className="h-6 w-6 lg:h-7 lg:w-7" fill="currentColor" viewBox="0 0 24 24" aria-hidden>
                 <rect x="6" y="6" width="12" height="12" rx="2" />
               </svg>
             ) : (
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg className="h-6 w-6 lg:h-7 lg:w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m-4 0h8m-4-16a3 3 0 00-3 3v4a3 3 0 006 0V8a3 3 0 00-3-3z" />
               </svg>
             )}
           </button>
-
-          {isBusy && (
-            <div className="text-gray-400 text-sm max-w-[12rem] text-center">
-              {state === "processing" ? "Thinking..." : "AI is speaking, please wait..."}
-            </div>
-          )}
+          <span
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-zinc-600"
+            aria-hidden
+            title="More options coming soon"
+          >
+            <IconPlus className="h-6 w-6" />
+          </span>
         </div>
-
-        <p className="text-xs text-gray-500">
-          {canRecord
-            ? "Hold the mic button to speak, release when done"
-            : isRecording
-              ? "Release to send your message"
-              : "Wait for the AI to finish before speaking"}
-        </p>
       </div>
     </div>
   );
