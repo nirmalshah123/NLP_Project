@@ -1,8 +1,8 @@
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.db import Scenario, get_db
+from app.models.db import Call, Evaluation, Scenario, get_db
 from app.models.schemas import ScenarioCreate, ScenarioOut
 
 router = APIRouter()
@@ -46,5 +46,14 @@ async def delete_scenario(scenario_id: int, db: AsyncSession = Depends(get_db)):
     scenario = await db.get(Scenario, scenario_id)
     if not scenario:
         raise HTTPException(404, "Scenario not found")
+
+    # Remove dependent rows first so we never violate NOT NULL/FK constraints.
+    call_ids = (
+        await db.execute(select(Call.id).where(Call.scenario_id == scenario_id))
+    ).scalars().all()
+    if call_ids:
+        await db.execute(delete(Evaluation).where(Evaluation.call_id.in_(call_ids)))
+        await db.execute(delete(Call).where(Call.id.in_(call_ids)))
+
     await db.delete(scenario)
     await db.commit()
