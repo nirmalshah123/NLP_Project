@@ -174,6 +174,18 @@ export default function LiveCall() {
   const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const recordingStartRef = useRef<number | null>(null);
   const nativeSRRef = useRef(48000);
+  const receivedAudioThisTurnRef = useRef(false);
+
+  const speakFallback = useCallback((text: string) => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+    const clean = text.trim();
+    if (!clean) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(clean);
+    utterance.rate = 0.98;
+    utterance.pitch = 1.0;
+    window.speechSynthesis.speak(utterance);
+  }, []);
 
   useEffect(() => {
     if (!Number.isFinite(scenarioId)) {
@@ -310,6 +322,7 @@ export default function LiveCall() {
 
     ws.onmessage = (ev) => {
       if (ev.data instanceof ArrayBuffer) {
+        receivedAudioThisTurnRef.current = true;
         audioQueueRef.current.push(ev.data);
         playNextAudio();
         return;
@@ -323,6 +336,7 @@ export default function LiveCall() {
               setState("ready");
             } else if (s === "processing") {
               setStreamingCustomerText("");
+              receivedAudioThisTurnRef.current = false;
               setState("processing");
             } else if (s === "speaking") {
               setState("speaking");
@@ -331,6 +345,9 @@ export default function LiveCall() {
             setStreamingCustomerText((prev) => prev + msg.delta);
           } else if (msg.type === "transcript") {
             if (msg.role === "customer") {
+              if (!receivedAudioThisTurnRef.current && typeof msg.text === "string") {
+                speakFallback(msg.text);
+              }
               setStreamingCustomerText("");
             }
             setTranscript((prev) => [...prev, { role: msg.role, text: msg.text }]);
@@ -349,11 +366,14 @@ export default function LiveCall() {
       setConnected(false);
       setState("idle");
     };
-  }, [callId, playNextAudio, initMic]);
+  }, [callId, playNextAudio, initMic, speakFallback]);
 
   useEffect(() => {
     connectWs();
     return () => {
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
       processorRef.current?.disconnect();
       sourceNodeRef.current?.disconnect();
       streamRef.current?.getTracks().forEach((t) => t.stop());
