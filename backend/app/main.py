@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+import os
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
@@ -18,9 +19,17 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Adversarial Dialogue API", lifespan=lifespan)
 
+cors_origins = [
+    origin.strip()
+    for origin in os.getenv(
+        "CORS_ORIGINS", "http://localhost:5173,https://nlp-project-red.vercel.app"
+    ).split(",")
+    if origin.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
