@@ -19,6 +19,10 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Adversarial Dialogue API", lifespan=lifespan)
 
+# Deployment-safe default: allow all origins for preflight reliability.
+# You can tighten this later by switching CORS_MODE to "strict" and setting
+# CORS_ORIGINS/CORS_ORIGIN_REGEX.
+cors_mode = os.getenv("CORS_MODE", "open").lower()
 cors_origins = [
     origin.strip().rstrip("/")
     for origin in os.getenv(
@@ -30,9 +34,9 @@ cors_origin_regex = os.getenv("CORS_ORIGIN_REGEX", r"https://.*\.vercel\.app")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=cors_origins,
-    allow_origin_regex=cors_origin_regex,
-    allow_credentials=True,
+    allow_origins=["*"] if cors_mode == "open" else cors_origins,
+    allow_origin_regex=None if cors_mode == "open" else cors_origin_regex,
+    allow_credentials=False if cors_mode == "open" else True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
