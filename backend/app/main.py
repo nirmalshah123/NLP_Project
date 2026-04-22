@@ -20,16 +20,18 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Adversarial Dialogue API", lifespan=lifespan)
 
 cors_origins = [
-    origin.strip()
+    origin.strip().rstrip("/")
     for origin in os.getenv(
         "CORS_ORIGINS", "http://localhost:5173,https://nlp-project-red.vercel.app"
     ).split(",")
     if origin.strip()
 ]
+cors_origin_regex = os.getenv("CORS_ORIGIN_REGEX", r"https://.*\.vercel\.app")
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
+    allow_origin_regex=cors_origin_regex,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
